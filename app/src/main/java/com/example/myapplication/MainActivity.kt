@@ -6,17 +6,17 @@ import android.text.method.ScrollingMovementMethod
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
-import android.view.MotionEvent
-import android.view.View
 import android.widget.ArrayAdapter
-import android.widget.Button
 import android.widget.ListView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapplication.mqtt.MqttClientHelper
 import com.google.android.material.snackbar.Snackbar
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.content_main.*
+import okhttp3.*
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
 import org.eclipse.paho.client.mqttv3.MqttCallbackExtended
 import org.eclipse.paho.client.mqttv3.MqttException
@@ -32,6 +32,7 @@ import kotlin.concurrent.schedule
 class MainActivity : AppCompatActivity() {
 
     var valueJson = "";
+    private val client = OkHttpClient()
     private val mqttClient by lazy {
         MqttClientHelper(this)
     }
@@ -109,8 +110,10 @@ class MainActivity : AppCompatActivity() {
             }
             @Throws(Exception::class)
             override fun messageArrived(topic: String, mqttMessage: MqttMessage) {
+                run();
                 Log.w("Debug", "Message received from host '$SOLACE_MQTT_HOST': $mqttMessage")
                 textViewNumMsgs.text = ("${textViewNumMsgs.text.toString().toInt() + 1}")
+                CompareParseValueToSub(mqttMessage.toString())
                 val str: String = "------------"+ Calendar.getInstance().time +"-------------\n$mqttMessage\n${textViewMsgPayload.text}"
                 textViewMsgPayload.text = str
             }
@@ -142,5 +145,70 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+
+    //Permet de récupérer la liste des utilisateurs et de les afficher dans la liste "userList"
+    @SuppressLint("SetTextI18n")
+    fun CompareParseValueToSub (tagScan: String){
+        var correctTag = false;
+        Log.d("Debug", tagScan)
+        val arrayAdapter: ArrayAdapter<*>
+        val gson = Gson()
+        val log: Type = object : TypeToken<List<Logs?>?>() {}.type
+        Thread.sleep(1000)
+        if (valueJson != ""){
+            val logs: List<Logs> = gson.fromJson(valueJson, log)
+            var tagsList: List<String> = listOf()
+            // Filtre les logs pour avoir l'utilisateur et la date convertie en YYYY-MM-DD-HH-mm-SS
+            for (log in logs){
+                if (log.UID == tagScan){
+                    correctTag = true
+                }
+            }
+            var topic = "porte_sub"
+            if (correctTag){
+                var snackbarMsg : String
+                snackbarMsg = "Cannot publish to empty topic!"
+                if (topic.isNotEmpty()) {
+                    snackbarMsg = try {
+                        mqttClient.publish(topic, "true")
+                        "Published to topic '$topic'"
+                    } catch (ex: MqttException) {
+                        "Error publishing to topic: $topic"
+                    }
+                }
+                textViewMsgPayload.text = "Accès autorisé"
+            }
+            else{
+                textViewMsgPayload.text = "Accès refusé"
+                mqttClient.publish(topic, "false")
+            }
+            Log.d("Debug", tagsList.toString())
+
+        }
+        else{
+            Log.d("Debug", "valueJson is empty")
+        }
+
+    }
+    // Permet de récupérer la liste des utilisateurs dans l'API et de les stocker dans la variable "valueJson"
+    fun run() {
+        val request = Request.Builder()
+            .url("http://167.114.96.59:2223/getTag")
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                e.printStackTrace()
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (!response.isSuccessful) throw IOException("Unexpected code $response")
+                    valueJson = response.body()!!.string()
+                    Log.d("Debug", valueJson)
+                }
+            }
+        })
+    }
 
 }
