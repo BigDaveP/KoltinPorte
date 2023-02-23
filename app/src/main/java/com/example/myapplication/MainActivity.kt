@@ -32,6 +32,7 @@ import kotlin.concurrent.schedule
 class MainActivity : AppCompatActivity() {
 
     var valueJson = "";
+    var isScanned = false
     private val client = OkHttpClient()
     private val mqttClient by lazy {
         MqttClientHelper(this)
@@ -47,11 +48,12 @@ class MainActivity : AppCompatActivity() {
 
         // initialize 'num msgs received' field in the view
         textViewNumMsgs.text = "0"
-
+        run()
+        Log.w("Value", valueJson)
         // pub button
         btnPub.setOnClickListener { view ->
             var snackbarMsg : String
-            val topic = "porte_pub"
+            val topic = "porte_sub"
             snackbarMsg = "Cannot publish to empty topic!"
             if (topic.isNotEmpty()) {
                 snackbarMsg = try {
@@ -69,7 +71,7 @@ class MainActivity : AppCompatActivity() {
         // sub button
         btnSub.setOnClickListener { view ->
             var snackbarMsg : String
-            val topic = "porte_pub"
+            val topic = "porte_sub"
             snackbarMsg = "Cannot subscribe to empty topic!"
             if (topic.isNotEmpty()) {
                 snackbarMsg = try {
@@ -77,6 +79,11 @@ class MainActivity : AppCompatActivity() {
                     "Subscribed to topic '$topic'"
                 } catch (ex: MqttException) {
                     "Error subscribing to topic: $topic"
+                }
+                CompareParseValueToSub(textViewMsgPayload.text.toString())
+                if (isScanned) {
+
+                    isScanned = false
                 }
             }
             Snackbar.make(view, snackbarMsg, Snackbar.LENGTH_SHORT)
@@ -110,12 +117,11 @@ class MainActivity : AppCompatActivity() {
             }
             @Throws(Exception::class)
             override fun messageArrived(topic: String, mqttMessage: MqttMessage) {
-                run();
                 Log.w("Debug", "Message received from host '$SOLACE_MQTT_HOST': $mqttMessage")
                 textViewNumMsgs.text = ("${textViewNumMsgs.text.toString().toInt() + 1}")
-                CompareParseValueToSub(mqttMessage.toString())
                 val str: String = "------------"+ Calendar.getInstance().time +"-------------\n$mqttMessage\n${textViewMsgPayload.text}"
                 textViewMsgPayload.text = str
+                isScanned = true
             }
 
             override fun deliveryComplete(iMqttDeliveryToken: IMqttDeliveryToken) {
@@ -150,7 +156,7 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetTextI18n")
     fun CompareParseValueToSub (tagScan: String){
         var correctTag = false;
-        Log.d("Debug", tagScan)
+        println("CompareParseValueToSub")
         val arrayAdapter: ArrayAdapter<*>
         val gson = Gson()
         val log: Type = object : TypeToken<List<Logs?>?>() {}.type
