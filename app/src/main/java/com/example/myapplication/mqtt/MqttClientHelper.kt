@@ -115,3 +115,8 @@ class MqttClientHelper(context: Context?) {
         mqttAndroidClient.disconnect()
     }
 }
+
+private fun MqttMessage.toByteArray(): ByteArray? {
+    return this.payload
+
+}

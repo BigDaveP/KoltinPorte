@@ -1,19 +1,17 @@
 package com.example.myapplication
 
+
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.os.SystemClock
 import android.text.method.ScrollingMovementMethod
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
-import android.widget.ArrayAdapter
-import android.widget.ListView
-import android.widget.TextView
+import android.view.MotionEvent
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapplication.mqtt.MqttClientHelper
 import com.google.android.material.snackbar.Snackbar
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.content_main.*
 import okhttp3.*
@@ -21,18 +19,16 @@ import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
 import org.eclipse.paho.client.mqttv3.MqttCallbackExtended
 import org.eclipse.paho.client.mqttv3.MqttException
 import org.eclipse.paho.client.mqttv3.MqttMessage
-
-
 import java.io.IOException
-import java.lang.reflect.Type
 import java.util.*
 import kotlin.concurrent.schedule
 
 
 class MainActivity : AppCompatActivity() {
 
-    var valueJson = "";
+    var value = "";
     var isScanned = false
+    private var tag = ""
     private val client = OkHttpClient()
     private val mqttClient by lazy {
         MqttClientHelper(this)
@@ -48,8 +44,6 @@ class MainActivity : AppCompatActivity() {
 
         // initialize 'num msgs received' field in the view
         textViewNumMsgs.text = "0"
-        run()
-        Log.w("Value", valueJson)
         // pub button
         btnPub.setOnClickListener { view ->
             var snackbarMsg : String
@@ -57,7 +51,7 @@ class MainActivity : AppCompatActivity() {
             snackbarMsg = "Cannot publish to empty topic!"
             if (topic.isNotEmpty()) {
                 snackbarMsg = try {
-                    mqttClient.publish(topic, "true")
+                    mqttClient.publish(topic, value)
                     "Published to topic '$topic'"
                 } catch (ex: MqttException) {
                     "Error publishing to topic: $topic"
@@ -77,13 +71,9 @@ class MainActivity : AppCompatActivity() {
                 snackbarMsg = try {
                     mqttClient.subscribe(topic)
                     "Subscribed to topic '$topic'"
+                    // Publier sur le topic "porte_sub" pour que le serveur envoie un message
                 } catch (ex: MqttException) {
                     "Error subscribing to topic: $topic"
-                }
-                CompareParseValueToSub(textViewMsgPayload.text.toString())
-                if (isScanned) {
-
-                    isScanned = false
                 }
             }
             Snackbar.make(view, snackbarMsg, Snackbar.LENGTH_SHORT)
@@ -119,9 +109,10 @@ class MainActivity : AppCompatActivity() {
             override fun messageArrived(topic: String, mqttMessage: MqttMessage) {
                 Log.w("Debug", "Message received from host '$SOLACE_MQTT_HOST': $mqttMessage")
                 textViewNumMsgs.text = ("${textViewNumMsgs.text.toString().toInt() + 1}")
-                val str: String = "------------"+ Calendar.getInstance().time +"-------------\n$mqttMessage\n${textViewMsgPayload.text}"
-                textViewMsgPayload.text = str
-                isScanned = true
+                tag = "";
+                tag = "$mqttMessage\n"
+                CompareParseValueToSub(tag)
+                textViewMsgPayload.text = tag
             }
 
             override fun deliveryComplete(iMqttDeliveryToken: IMqttDeliveryToken) {
@@ -155,51 +146,8 @@ class MainActivity : AppCompatActivity() {
     //Permet de récupérer la liste des utilisateurs et de les afficher dans la liste "userList"
     @SuppressLint("SetTextI18n")
     fun CompareParseValueToSub (tagScan: String){
-        var correctTag = false;
-        println("CompareParseValueToSub")
-        val arrayAdapter: ArrayAdapter<*>
-        val gson = Gson()
-        val log: Type = object : TypeToken<List<Logs?>?>() {}.type
-        Thread.sleep(1000)
-        if (valueJson != ""){
-            val logs: List<Logs> = gson.fromJson(valueJson, log)
-            var tagsList: List<String> = listOf()
-            // Filtre les logs pour avoir l'utilisateur et la date convertie en YYYY-MM-DD-HH-mm-SS
-            for (log in logs){
-                if (log.UID == tagScan){
-                    correctTag = true
-                }
-            }
-            var topic = "porte_sub"
-            if (correctTag){
-                var snackbarMsg : String
-                snackbarMsg = "Cannot publish to empty topic!"
-                if (topic.isNotEmpty()) {
-                    snackbarMsg = try {
-                        mqttClient.publish(topic, "true")
-                        "Published to topic '$topic'"
-                    } catch (ex: MqttException) {
-                        "Error publishing to topic: $topic"
-                    }
-                }
-                textViewMsgPayload.text = "Accès autorisé"
-            }
-            else{
-                textViewMsgPayload.text = "Accès refusé"
-                mqttClient.publish(topic, "false")
-            }
-            Log.d("Debug", tagsList.toString())
-
-        }
-        else{
-            Log.d("Debug", "valueJson is empty")
-        }
-
-    }
-    // Permet de récupérer la liste des utilisateurs dans l'API et de les stocker dans la variable "valueJson"
-    fun run() {
         val request = Request.Builder()
-            .url("http://167.114.96.59:2223/getTag")
+            .url("http://167.114.96.59:2223/api/verifyTag/$tagScan")
             .build()
 
         client.newCall(request).enqueue(object : Callback {
@@ -210,11 +158,36 @@ class MainActivity : AppCompatActivity() {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (!response.isSuccessful) throw IOException("Unexpected code $response")
-                    valueJson = response.body()!!.string()
-                    Log.d("Debug", valueJson)
+                    value = response.body()!!.string()
+                    saveToLog(tagScan, value)
+                    Log.d("Debug", value)
                 }
             }
         })
+
     }
 
-}
+    fun saveToLog(tagScan: String, value: String){
+        //Get DateTime
+        val c = Calendar.getInstance()
+        val request = Request.Builder()
+            .url("http://167.114.96.59:2223/api/saveToLogs/$tagScan/$value/$c")
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                e.printStackTrace()
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (!response.isSuccessful) throw IOException("Unexpected code $response")
+                    Log.d("Debug", value)
+                }
+            }
+        })
+        }
+
+    }
+
+
