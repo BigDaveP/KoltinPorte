@@ -2,6 +2,7 @@ package com.example.myapplication
 
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.os.Bundle
 import android.os.SystemClock
 import android.text.method.ScrollingMovementMethod
@@ -48,13 +49,13 @@ class MainActivity : AppCompatActivity() {
         btnPub.setOnClickListener { view ->
             var snackbarMsg : String
             val topic = "porte_sub"
-            snackbarMsg = "Cannot publish to empty topic!"
+            snackbarMsg = "Impossible de publier sur un topic vide!"
             if (topic.isNotEmpty()) {
                 snackbarMsg = try {
                     mqttClient.publish(topic, value)
-                    "Published to topic '$topic'"
+                    "Publier au 'topic':  '$topic'"
                 } catch (ex: MqttException) {
-                    "Error publishing to topic: $topic"
+                    "Erreur de connection au 'topic': $topic"
                 }
             }
             Snackbar.make(view, snackbarMsg, 300)
@@ -66,14 +67,14 @@ class MainActivity : AppCompatActivity() {
         btnSub.setOnClickListener { view ->
             var snackbarMsg : String
             val topic = "porte_sub"
-            snackbarMsg = "Cannot subscribe to empty topic!"
+            snackbarMsg = "Impossible de souscrire à un topic vide!"
             if (topic.isNotEmpty()) {
                 snackbarMsg = try {
                     mqttClient.subscribe(topic)
-                    "Subscribed to topic '$topic'"
+                    "Souscrit au 'topic': '$topic'"
                     // Publier sur le topic "porte_sub" pour que le serveur envoie un message
                 } catch (ex: MqttException) {
-                    "Error subscribing to topic: $topic"
+                    "Erreur de connection au 'topic': $topic"
                 }
             }
             Snackbar.make(view, snackbarMsg, Snackbar.LENGTH_SHORT)
@@ -81,10 +82,15 @@ class MainActivity : AppCompatActivity() {
         }
 
 
+        btnHistory.setOnClickListener {
+            val intent = Intent(this@MainActivity, HistoryActivity::class.java)
+            startActivity(intent)
+        }
+
 
         Timer("CheckMqttConnection", false).schedule(3000) {
             if (!mqttClient.isConnected()) {
-                Snackbar.make(textViewNumMsgs, "Failed to connect to: '$SOLACE_MQTT_HOST' within 3 seconds", Snackbar.LENGTH_INDEFINITE)
+                Snackbar.make(textViewNumMsgs, "Impossible de se connecter à l'adresse suivante : '$SOLACE_MQTT_HOST' en 3 secondes", Snackbar.LENGTH_INDEFINITE)
                     .setAction("Action", null).show()
             }
         }
@@ -94,20 +100,20 @@ class MainActivity : AppCompatActivity() {
     private fun setMqttCallBack() {
         mqttClient.setCallback(object : MqttCallbackExtended {
             override fun connectComplete(b: Boolean, s: String) {
-                val snackbarMsg = "Connected to host:\n'$SOLACE_MQTT_HOST'."
+                val snackbarMsg = "Connecté à l'adresse:\n'$SOLACE_MQTT_HOST'."
                 Log.w("Debug", snackbarMsg)
                 Snackbar.make(findViewById(android.R.id.content), snackbarMsg, Snackbar.LENGTH_LONG)
                     .setAction("Action", null).show()
             }
             override fun connectionLost(throwable: Throwable) {
-                val snackbarMsg = "Connection to host lost:\n'$SOLACE_MQTT_HOST'"
+                val snackbarMsg = "Connection perdu à l'adresse:\n'$SOLACE_MQTT_HOST'"
                 Log.w("Debug", snackbarMsg)
                 Snackbar.make(findViewById(android.R.id.content), snackbarMsg, Snackbar.LENGTH_LONG)
                     .setAction("Action", null).show()
             }
             @Throws(Exception::class)
             override fun messageArrived(topic: String, mqttMessage: MqttMessage) {
-                Log.w("Debug", "Message received from host '$SOLACE_MQTT_HOST': $mqttMessage")
+                Log.w("Debug", "Message reçu de l'adresse '$SOLACE_MQTT_HOST': $mqttMessage")
                 textViewNumMsgs.text = ("${textViewNumMsgs.text.toString().toInt() + 1}")
                 tag = "";
                 tag = "$mqttMessage\n"
@@ -116,7 +122,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun deliveryComplete(iMqttDeliveryToken: IMqttDeliveryToken) {
-                Log.w("Debug", "Message published to host '$SOLACE_MQTT_HOST'")
+                Log.w("Debug", "Message envoyer à l'adresse '$SOLACE_MQTT_HOST'")
             }
         })
     }
