@@ -10,9 +10,12 @@ import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
+import android.widget.ArrayAdapter
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapplication.mqtt.MqttClientHelper
 import com.google.android.material.snackbar.Snackbar
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.content_main.*
 import okhttp3.*
@@ -21,6 +24,7 @@ import org.eclipse.paho.client.mqttv3.MqttCallbackExtended
 import org.eclipse.paho.client.mqttv3.MqttException
 import org.eclipse.paho.client.mqttv3.MqttMessage
 import java.io.IOException
+import java.lang.reflect.Type
 import java.util.*
 import kotlin.concurrent.schedule
 
@@ -199,5 +203,6 @@ class MainActivity : AppCompatActivity() {
         }
 
     }
+
 
 
