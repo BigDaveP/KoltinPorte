@@ -164,7 +164,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
-
     }
 
     fun saveToLog(tagScan: String, value: String){
