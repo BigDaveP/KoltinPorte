@@ -2,6 +2,7 @@ package com.example.myapplication
 
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.os.Bundle
 import android.os.SystemClock
 import android.text.method.ScrollingMovementMethod
@@ -80,6 +81,10 @@ class MainActivity : AppCompatActivity() {
                 .setAction("Action", null).show()
         }
 
+        btnHistory.setOnClickListener {
+            val intent = Intent(this@MainActivity, HistoryActivity::class.java)
+            startActivity(intent)
+        }
 
 
         Timer("CheckMqttConnection", false).schedule(3000) {
