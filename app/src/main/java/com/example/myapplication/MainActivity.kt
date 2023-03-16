@@ -81,6 +81,7 @@ class MainActivity : AppCompatActivity() {
                 .setAction("Action", null).show()
         }
 
+        // Redirection vers l'activité de l'historique
         btnHistory.setOnClickListener {
             val intent = Intent(this@MainActivity, HistoryActivity::class.java)
             startActivity(intent)
